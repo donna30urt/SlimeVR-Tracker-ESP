@@ -224,6 +224,17 @@ class BMI160Sensor : public Sensor {
         bool isMagCalibrated = false;
 
         SlimeVR::Configuration::BMI160CalibrationConfig m_Calibration = {};
+
+		// Check for min rotation
+		bool isRotationInitialized = false;
+		bool isAccelerationInitialized = false;
+		int16_t lastReportedRotationX, lastReportedRotationY, lastReportedRotationZ;
+    	int16_t lastReportedAccelerationX, lastReportedAccelerationY, lastReportedAccelerationZ;
+    	static constexpr int16_t ROTATION_THRESHOLD = 10;   // Initial threshold
+    	static constexpr int16_t ACCELERATION_THRESHOLD = 10;   // Initial threshold
+
+
+
 };
 
 #endif
