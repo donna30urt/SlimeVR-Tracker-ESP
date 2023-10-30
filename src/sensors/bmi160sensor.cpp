@@ -247,6 +247,59 @@ void BMI160Sensor::motionLoop() {
     }
     #endif
 
+	/////////////////////
+	uint32_t now3 = micros();
+    constexpr float maxSendRateHz = 120.0f;
+    constexpr uint32_t sendInterval = 1.0f/maxSendRateHz * 1e6;
+	uint32_t elapsed = now3 - lastRotationPacketSent;
+    if (elapsed >= sendInterval) {
+        lastRotationPacketSent = now3 - (elapsed - sendInterval);
+
+        fusedRotation = sfusion.getQuaternionQuat();
+        acceleration = sfusion.getLinearAccVec();
+
+        // If uninitialized, set initial values
+        if (!isRotationInitialized) {
+            lastReportedRotationX = fusedRotation.x;
+            lastReportedRotationY = fusedRotation.y;
+            lastReportedRotationZ = fusedRotation.z;
+            isRotationInitialized = true;
+        }
+
+        if (!isAccelerationInitialized) {
+            lastReportedAccelerationX = acceleration.x;
+            lastReportedAccelerationY = acceleration.y;
+            lastReportedAccelerationZ = acceleration.z;
+            isAccelerationInitialized = true;
+        }
+
+        // Check if the difference exceeds threshold for rotation
+        if (abs(fusedRotation.x - lastReportedRotationX) > ROTATION_THRESHOLD ||
+            abs(fusedRotation.y - lastReportedRotationY) > ROTATION_THRESHOLD ||
+            abs(fusedRotation.z - lastReportedRotationZ) > ROTATION_THRESHOLD ||
+            abs(acceleration.x - lastReportedAccelerationX) > ACCELERATION_THRESHOLD ||
+            abs(acceleration.y - lastReportedAccelerationY) > ACCELERATION_THRESHOLD ||
+            abs(acceleration.z - lastReportedAccelerationZ) > ACCELERATION_THRESHOLD) {
+
+            // Update the last reported values
+            lastReportedRotationX = fusedRotation.x;
+            lastReportedRotationY = fusedRotation.y;
+            lastReportedRotationZ = fusedRotation.z;
+            lastReportedAccelerationX = acceleration.x;
+            lastReportedAccelerationY = acceleration.y;
+            lastReportedAccelerationZ = acceleration.z;
+
+            setFusedRotationReady();
+            setAccelerationReady();
+
+            fusedRotation *= sensorOffset;
+
+            optimistic_yield(100);
+            return; // Exit if met
+        }
+    }
+	
+	/////////////////////
     {
         uint32_t now = micros();
         constexpr uint32_t BMI160_TARGET_SYNC_INTERVAL_MICROS = 25000;
@@ -338,8 +391,6 @@ void BMI160Sensor::motionLoop() {
 
     {
         uint32_t now = micros();
-        constexpr float maxSendRateHz = 2.0f;
-        constexpr uint32_t sendInterval = 1.0f/maxSendRateHz * 1e6;
         uint32_t elapsed = now - lastTemperaturePacketSent;
         if (elapsed >= sendInterval) {
             lastTemperaturePacketSent = now - (elapsed - sendInterval);
@@ -355,8 +406,6 @@ void BMI160Sensor::motionLoop() {
 
     {
         uint32_t now = micros();
-        constexpr float maxSendRateHz = 120.0f;
-        constexpr uint32_t sendInterval = 1.0f/maxSendRateHz * 1e6;
         uint32_t elapsed = now - lastRotationPacketSent;
         if (elapsed >= sendInterval) {
             lastRotationPacketSent = now - (elapsed - sendInterval);
